@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -315,13 +316,41 @@ fun CombinedStickyLists() {
                     selectedTasks.value.contains(item)
                 }
 
-                Text(
-                    text = if (isSelected) "✅ $item" else item,
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
-                        .background(if (isSelected) Color(0xFFE0F7FA) else Color.Transparent)
-                )
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .background(if (isSelected) Color(0xFFE0F7FA) else Color.Transparent),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = isSelected,
+                        onCheckedChange = { checked ->
+                            if (isProject) {
+                                val currentSet = selectedProjects[index] ?: mutableSetOf()
+                                val newSet = currentSet.toMutableSet() // 新集合触发 Compose 重组
+                                if (checked) {
+                                    newSet.add(item)
+                                } else {
+                                    newSet.remove(item)
+                                }
+                                selectedProjects[index] = newSet // 替换原集合
+                            } else {
+                                val newSet = selectedTasks.value.toMutableSet()
+                                if (checked) {
+                                    newSet.add(item)
+                                } else {
+                                    newSet.remove(item)
+                                }
+                                selectedTasks.value = newSet // 替换原集合
+                            }
+                        }
+                    )
+                    Text(
+                        text = item,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
             }
         }
     }
