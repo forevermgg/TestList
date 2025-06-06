@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
@@ -171,15 +172,17 @@ fun getCurrentStickyHeaderIndex(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CombinedStickyLists() {
+    val randomTexts = List(3) { "Random Item ${it + 1}" }
+    val randomTextsCount = randomTexts.size
     val projectSections = listOf(
-        "Project A" to listOf("Compose", "ViewModel", "Navigation", "Model", "Http", "https", "Curl",
-                              "AndroidX", "Camera2", "LiveData", "Page2"),
+        "Project A" to listOf("Compose", "ViewModel"/*, "Navigation", "Model", "Http", "https", "Curl",
+                              "AndroidX", "Camera2", "LiveData", "Page2"*/),
         "Project B" to listOf("LiveData", "Room", "Kotlin Flow")
     )
 
     val taskSections = listOf(
-        "Task Section 1" to List(10) { "Task 1-${it + 1}" },
-        "Task Section 2" to List(10) { "Task 2-${it + 1}" }
+        "Task Section 1" to List(5) { "Task 1-${it + 1}" },
+        "Task Section 2" to List(5) { "Task 2-${it + 1}" }
     )
 
     val allSections = projectSections + taskSections
@@ -207,8 +210,8 @@ fun CombinedStickyLists() {
                 var firstTaskHeaderFound: Int? = null
 
                 visibleItems.forEach { item ->
-                    val headerIdx = findHeaderIndexFromItemIndex(item.index, allSections)
-                    val sectionStart = getItemStartIndexForSection(headerIdx, allSections)
+                    val headerIdx = findHeaderIndexFromItemIndex(item.index, allSections, randomTextsCount)
+                    val sectionStart = getItemStartIndexForSection(headerIdx, allSections, randomTextsCount)
                     if (item.index == sectionStart) {
                         visibleHeaders.add(headerIdx)
 
@@ -219,10 +222,10 @@ fun CombinedStickyLists() {
                 }
 
                 currentStickyIndex.value = findHeaderIndexFromItemIndex(
-                    layoutInfo.visibleItemsInfo.firstOrNull { it.offset == 0 }?.index
-                        ?: 0,
-                    allSections
-                )
+                    layoutInfo.visibleItemsInfo.firstOrNull { it.offset == 0 }?.index ?: 0,
+                    allSections,
+                    randomTextsCount
+                    )
 
                 visibleHeaderIndices.value = visibleHeaders
                 firstVisibleTaskHeaderIndex.value = firstTaskHeaderFound
@@ -235,6 +238,16 @@ fun CombinedStickyLists() {
             .fillMaxSize()
             .padding(WindowInsets.systemBars.asPaddingValues())
     ) {
+        // ✅ 显示随机文本项
+        items(randomTexts) { item ->
+            Text(
+                text = item,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .background(Color(0xFFF5F5F5))
+            )
+        }
         allSections.forEachIndexed { index, (header, items) ->
             val isProject = index < projectCount
             val isSticky = index == currentStickyIndex.value
@@ -256,6 +269,7 @@ fun CombinedStickyLists() {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .height(48.dp) // 固定高度为 48dp
                         .background(bgColor)
                         .padding(8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -357,8 +371,8 @@ fun CombinedStickyLists() {
 }
 
 // === Utility functions ===
-fun findHeaderIndexFromItemIndex(itemIndex: Int, sections: List<Pair<String, List<String>>>): Int {
-    var running = 0
+fun findHeaderIndexFromItemIndex(itemIndex: Int, sections: List<Pair<String, List<String>>>, offset: Int): Int {
+    var running = offset
     for ((sectionIndex, section) in sections.withIndex()) {
         if (itemIndex == running) return sectionIndex
         running += 1 + section.second.size
@@ -367,8 +381,8 @@ fun findHeaderIndexFromItemIndex(itemIndex: Int, sections: List<Pair<String, Lis
     return 0
 }
 
-fun getItemStartIndexForSection(sectionIndex: Int, sections: List<Pair<String, List<String>>>): Int {
-    var index = 0
+fun getItemStartIndexForSection(sectionIndex: Int, sections: List<Pair<String, List<String>>>, offset: Int): Int {
+    var index = offset
     for (i in 0 until sectionIndex) {
         index += 1 + sections[i].second.size
     }
