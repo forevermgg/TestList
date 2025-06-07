@@ -6,21 +6,31 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,6 +44,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.forever.testlist.ui.theme.TestListTheme
 
@@ -52,7 +63,36 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MyApp() {
     // StickyHeadersHighlightExample()
-    CombinedStickyLists()
+    Box(modifier = Modifier.fillMaxSize()) {
+        // 页面主内容
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 80.dp) // 给底部按钮留空间
+        ) {
+            CombinedStickyLists()
+        }
+
+        // 底部按钮固定
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight() // 👈 高度根据按钮实际内容自适应
+                .align(Alignment.BottomCenter)
+                .background(Color.Yellow) // ✅ 可选：加背景确保可见
+        ) {
+            Column {
+                HorizontalDivider(
+                    thickness = 0.5.dp,
+                    color = Color.LightGray
+                )
+                ThreeAlignedButtons(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                )
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -269,7 +309,8 @@ fun CombinedStickyLists() {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp) // 固定高度为 48dp
+                        .wrapContentHeight()
+                        .defaultMinSize(minHeight = 56.dp) // ✅ 设置最小高度
                         .background(bgColor)
                         .padding(8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -387,4 +428,96 @@ fun getItemStartIndexForSection(sectionIndex: Int, sections: List<Pair<String, L
         index += 1 + sections[i].second.size
     }
     return index
+}
+
+@Composable
+fun ThreeAlignedButtons(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .padding(horizontal = 24.dp, vertical = 20.dp), // padding 控制内部间距
+    ) {
+        // 左侧按钮
+        TextButton(
+            onClick = { /*TODO*/ },
+            modifier = Modifier.align(Alignment.CenterStart),
+            colors = ButtonDefaults.textButtonColors(
+                containerColor = Color.Transparent,
+                contentColor = Color.Unspecified
+            ),
+            contentPadding = PaddingValues(
+                start = 12.dp,
+                top = 8.dp,
+                end = 12.dp,
+                bottom = 8.dp
+            ),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_launcher_background),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("左边")
+            }
+        }
+
+        // 中间按钮
+        TextButton(
+            onClick = { /*TODO*/ },
+            modifier = Modifier.align(Alignment.Center),
+            colors = ButtonDefaults.textButtonColors(
+                containerColor = Color.Transparent,
+                contentColor = Color.Unspecified
+            ),
+            contentPadding = PaddingValues(
+                start = 12.dp,
+                top = 8.dp,
+                end = 12.dp,
+                bottom = 8.dp
+            ),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_launcher_background),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("中间")
+            }
+        }
+
+        // 右侧按钮
+        TextButton(
+            onClick = { /*TODO*/ },
+            modifier = Modifier.align(Alignment.CenterEnd),
+            colors = ButtonDefaults.textButtonColors(
+                containerColor = Color.Transparent,
+                contentColor = Color.Unspecified
+            ),
+            contentPadding = PaddingValues(
+                start = 12.dp,
+                top = 8.dp,
+                end = 12.dp,
+                bottom = 8.dp
+            ),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_launcher_background),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("右边")
+            }
+        }
+    }
 }
