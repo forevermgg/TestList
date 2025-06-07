@@ -91,13 +91,13 @@ class ProjectGroup(
 
     fun updateVisibleItems() {
         visibleItems.clear()
-        if (isExpanded || items.size <= 5) {
+        if (isExpanded || items.size <= 4) {
             visibleItems.addAll(items)
-            if (items.size > 5) {
+            if (items.size > 4) {
                 visibleItems.add(ProjectItem("收起"))
             }
         } else {
-            visibleItems.addAll(items.take(4))
+            visibleItems.addAll(items.take(3))
             visibleItems.add(ProjectItem("展开"))
         }
     }
@@ -287,15 +287,15 @@ fun CombinedStickyLists() {
     val sectionGroups = listOf(
         SectionGroup(
             title = "Task Section 1",
-            items = MutableList(50) { SectionItem("Task 1-\${it + 1}") }
+            items = MutableList(10) { SectionItem("Task 1-\${it + 1}") }
         ),
         SectionGroup(
             title = "Task Section 2",
-            items = MutableList(50) { SectionItem("Task 2-\${it + 1}") }
+            items = MutableList(20) { SectionItem("Task 2-\${it + 1}") }
         ),
         SectionGroup(
             title = "Task Section 3",
-            items = MutableList(50) { SectionItem("Task 3-\${it + 1}") }
+            items = MutableList(30) { SectionItem("Task 3-\${it + 1}") }
         ),
     )
 
