@@ -37,9 +37,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,11 +69,40 @@ data class ProjectItem(
     var isExpanded: Boolean = false
 )
 
-data class ProjectGroup(
+class ProjectGroup(
     val title: String,
-    val items: MutableList<ProjectItem>,
-    var isExpanded: Boolean = false
-)
+    val items: List<ProjectItem>
+) {
+    var isExpanded by mutableStateOf(false)
+        private set
+
+    // 可观察的可见项列表
+    var visibleItems = mutableStateListOf<ProjectItem>()
+        private set
+
+    init {
+        updateVisibleItems()
+    }
+
+    fun toggleExpand() {
+        isExpanded = !isExpanded
+        updateVisibleItems()
+    }
+
+    fun updateVisibleItems() {
+        visibleItems.clear()
+        if (isExpanded || items.size <= 5) {
+            visibleItems.addAll(items)
+            if (items.size > 5) {
+                visibleItems.add(ProjectItem("收起"))
+            }
+        } else {
+            visibleItems.addAll(items.take(4))
+            visibleItems.add(ProjectItem("展开"))
+        }
+    }
+}
+
 
 data class SectionItem(
     val name: String
@@ -234,34 +265,37 @@ fun getCurrentStickyHeaderIndex(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CombinedStickyLists() {
-    // 3 个随机文本，展示在顶部
-    val randomTexts = List(3) { "Random Item ${it + 1}" }
+    val randomTexts = List(3) { "Random Item \${it + 1}" }
 
-    // 使用 ProjectGroup 和 SectionGroup 替代之前的 List<Pair<String, List<String>>>
-    val projectGroups = listOf(
-        ProjectGroup(
-            title = "Project A",
-            items = mutableListOf(
-                ProjectItem("Compose"),
-                ProjectItem("ViewModel"),
-                // 你可以继续添加项目
-            )
-        ),
-        // 可以添加更多项目组
-    )
+    val projectGroups = remember {
+        listOf(
+            ProjectGroup(
+                title = "Project A",
+                items = listOf(
+                    ProjectItem("Compose"),
+                    ProjectItem("ViewModel"),
+                    ProjectItem("LiveData"),
+                    ProjectItem("Room"),
+                    ProjectItem("Navigation"),
+                    ProjectItem("Paging")
+                )
+            ),
+            // Add more ProjectGroups if needed
+        )
+    }
 
     val sectionGroups = listOf(
         SectionGroup(
             title = "Task Section 1",
-            items = MutableList(50) { SectionItem("Task 1-${it + 1}") }
+            items = MutableList(50) { SectionItem("Task 1-\${it + 1}") }
         ),
         SectionGroup(
             title = "Task Section 2",
-            items = MutableList(50) { SectionItem("Task 2-${it + 1}") }
+            items = MutableList(50) { SectionItem("Task 2-\${it + 1}") }
         ),
         SectionGroup(
             title = "Task Section 3",
-            items = MutableList(50) { SectionItem("Task 3-${it + 1}") }
+            items = MutableList(50) { SectionItem("Task 3-\${it + 1}") }
         ),
     )
 
@@ -273,7 +307,6 @@ fun CombinedStickyLists() {
     val visibleHeaderIndices = remember { mutableStateOf(setOf<Int>()) }
     val firstVisibleTaskHeaderIndex = remember { mutableStateOf<Int?>(null) }
 
-    // 记录选中状态，项目和任务分别维护选中集合
     val selectedProjects = remember {
         mutableStateMapOf<Int, MutableSet<String>>().apply {
             projectGroups.forEachIndexed { index, group ->
@@ -283,7 +316,6 @@ fun CombinedStickyLists() {
     }
     val selectedTasks = remember { mutableStateOf(mutableSetOf<String>()) }
 
-    // 监听 LazyColumn 可见项，更新当前 sticky header 及可见 header 集合
     LaunchedEffect(listState) {
         snapshotFlow { listState.layoutInfo }
             .collect { layoutInfo ->
@@ -320,7 +352,6 @@ fun CombinedStickyLists() {
             .fillMaxSize()
             .padding(WindowInsets.systemBars.asPaddingValues())
     ) {
-        // 显示顶部随机文本项
         items(randomTexts) { item ->
             Text(
                 text = item,
@@ -331,7 +362,6 @@ fun CombinedStickyLists() {
             )
         }
 
-        // 遍历所有分组，显示 StickyHeader 和内容
         allGroups.forEachIndexed { index, group ->
             val isProject = index < projectCount
             val isSticky = index == currentStickyIndex.value
@@ -365,11 +395,9 @@ fun CombinedStickyLists() {
                         Row {
                             TextButton(onClick = {
                                 if (isProject) {
-                                    // 全选当前项目组所有项
                                     val projGroup = group as ProjectGroup
                                     selectedProjects[index] = projGroup.items.map { it.name }.toMutableSet()
                                 } else {
-                                    // 全选所有任务项
                                     val allTasks = sectionGroups.flatMap { it.items }.map { it.name }
                                     selectedTasks.value = allTasks.toMutableSet()
                                 }
@@ -381,7 +409,6 @@ fun CombinedStickyLists() {
                                 if (isProject) {
                                     val projGroup = group as ProjectGroup
                                     val current = selectedProjects[index] ?: mutableSetOf()
-                                    // 反选：当前未选中项加入，已选中项移除
                                     selectedProjects[index] = projGroup.items.mapNotNull {
                                         if (current.contains(it.name)) null else it.name
                                     }.toMutableSet()
@@ -410,35 +437,45 @@ fun CombinedStickyLists() {
                 }
             }
 
-            // 显示组内所有项，支持选中和 Checkbox 控制
             if (isProject) {
                 val projGroup = group as ProjectGroup
-                items(projGroup.items) { item ->
+                items(projGroup.visibleItems) { item ->
+                    val isExpandControl = item.name == "展开" || item.name == "收起"
                     val isSelected = selectedProjects[index]?.contains(item.name) == true
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .background(if (isSelected) Color(0xFFE0F7FA) else Color.Transparent),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = isSelected,
-                            onCheckedChange = { checked ->
-                                val currentSet = selectedProjects[index] ?: mutableSetOf()
-                                val newSet = currentSet.toMutableSet()
-                                if (checked) {
-                                    newSet.add(item.name)
-                                } else {
-                                    newSet.remove(item.name)
+
+                    if (isExpandControl) {
+                        TextButton(
+                            onClick = {
+                                projGroup.toggleExpand()
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text(text = item.name, color = Color.Blue)
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .background(if (isSelected) Color(0xFFE0F7FA) else Color.Transparent),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = { checked ->
+                                    val currentSet = selectedProjects[index] ?: mutableSetOf()
+                                    val newSet = currentSet.toMutableSet()
+                                    if (checked) newSet.add(item.name) else newSet.remove(item.name)
+                                    selectedProjects[index] = newSet
                                 }
-                                selectedProjects[index] = newSet
-                            }
-                        )
-                        Text(
-                            text = item.name,
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
+                            )
+                            Text(
+                                text = item.name,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
                     }
                 }
             } else {
@@ -456,11 +493,7 @@ fun CombinedStickyLists() {
                             checked = isSelected,
                             onCheckedChange = { checked ->
                                 val newSet = selectedTasks.value.toMutableSet()
-                                if (checked) {
-                                    newSet.add(item.name)
-                                } else {
-                                    newSet.remove(item.name)
-                                }
+                                if (checked) newSet.add(item.name) else newSet.remove(item.name)
                                 selectedTasks.value = newSet
                             }
                         )
@@ -475,10 +508,6 @@ fun CombinedStickyLists() {
     }
 }
 
-/**
- * 计算给定 itemIndex 属于哪个分组的索引
- * 因为顶部有 randomTexts.size 个随机项，需要做偏移
- */
 fun findHeaderIndexFromItemIndex(
     itemIndex: Int,
     projectGroups: List<ProjectGroup>,
@@ -488,7 +517,7 @@ fun findHeaderIndexFromItemIndex(
     var runningIndex = offset
     val allGroups = projectGroups + sectionGroups
     for ((sectionIndex, group) in allGroups.withIndex()) {
-        val size = if (group is ProjectGroup) group.items.size else (group as SectionGroup).items.size
+        val size = if (group is ProjectGroup) group.visibleItems.size else (group as SectionGroup).items.size
         if (itemIndex == runningIndex) return sectionIndex
         runningIndex += 1 + size
         if (itemIndex < runningIndex) return sectionIndex
@@ -496,9 +525,6 @@ fun findHeaderIndexFromItemIndex(
     return 0
 }
 
-/**
- * 获取指定分组在列表中的起始 item 索引（包括 header）
- */
 fun getItemStartIndexForSection(
     sectionIndex: Int,
     projectGroups: List<ProjectGroup>,
@@ -509,7 +535,7 @@ fun getItemStartIndexForSection(
     val allGroups = projectGroups + sectionGroups
     for (i in 0 until sectionIndex) {
         val group = allGroups[i]
-        val size = if (group is ProjectGroup) group.items.size else (group as SectionGroup).items.size
+        val size = if (group is ProjectGroup) group.visibleItems.size else (group as SectionGroup).items.size
         index += 1 + size
     }
     return index
