@@ -221,8 +221,9 @@ fun CombinedStickyLists() {
     )
 
     val taskSections = listOf(
-        "Task Section 1" to List(5) { "Task 1-${it + 1}" },
-        "Task Section 2" to List(5) { "Task 2-${it + 1}" }
+        "Task Section 1" to List(50) { "Task 1-${it + 1}" },
+        "Task Section 2" to List(50) { "Task 2-${it + 1}" },
+        "Task Section 3" to List(50) { "Task 2-${it + 1}" }
     )
 
     val allSections = projectSections + taskSections
