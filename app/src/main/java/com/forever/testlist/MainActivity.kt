@@ -60,6 +60,28 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// --- Data models ---
+data class ProjectItem(
+    val name: String,
+    val isOriginal: Boolean = true,
+    var isExpanded: Boolean = false
+)
+
+data class ProjectGroup(
+    val title: String,
+    val items: MutableList<ProjectItem>,
+    var isExpanded: Boolean = false
+)
+
+data class SectionItem(
+    val name: String
+)
+
+data class SectionGroup(
+    val title: String,
+    val items: MutableList<SectionItem>
+)
+
 @Composable
 fun MyApp() {
     // StickyHeadersHighlightExample()
@@ -212,37 +234,56 @@ fun getCurrentStickyHeaderIndex(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CombinedStickyLists() {
+    // 3 个随机文本，展示在顶部
     val randomTexts = List(3) { "Random Item ${it + 1}" }
-    val randomTextsCount = randomTexts.size
-    val projectSections = listOf(
-        "Project A" to listOf("Compose", "ViewModel"/*, "Navigation", "Model", "Http", "https", "Curl",
-                              "AndroidX", "Camera2", "LiveData", "Page2"*/),
-        "Project B" to listOf("LiveData", "Room", "Kotlin Flow")
+
+    // 使用 ProjectGroup 和 SectionGroup 替代之前的 List<Pair<String, List<String>>>
+    val projectGroups = listOf(
+        ProjectGroup(
+            title = "Project A",
+            items = mutableListOf(
+                ProjectItem("Compose"),
+                ProjectItem("ViewModel"),
+                // 你可以继续添加项目
+            )
+        ),
+        // 可以添加更多项目组
     )
 
-    val taskSections = listOf(
-        "Task Section 1" to List(50) { "Task 1-${it + 1}" },
-        "Task Section 2" to List(50) { "Task 2-${it + 1}" },
-        "Task Section 3" to List(50) { "Task 2-${it + 1}" }
+    val sectionGroups = listOf(
+        SectionGroup(
+            title = "Task Section 1",
+            items = MutableList(50) { SectionItem("Task 1-${it + 1}") }
+        ),
+        SectionGroup(
+            title = "Task Section 2",
+            items = MutableList(50) { SectionItem("Task 2-${it + 1}") }
+        ),
+        SectionGroup(
+            title = "Task Section 3",
+            items = MutableList(50) { SectionItem("Task 3-${it + 1}") }
+        ),
     )
 
-    val allSections = projectSections + taskSections
-    val projectCount = projectSections.size
+    val allGroups: List<Any> = projectGroups + sectionGroups
+    val projectCount = projectGroups.size
 
     val listState = rememberLazyListState()
     val currentStickyIndex = remember { mutableStateOf(0) }
     val visibleHeaderIndices = remember { mutableStateOf(setOf<Int>()) }
-
-    val selectedTasks = remember { mutableStateOf(mutableSetOf<String>()) }
-    val selectedProjects = remember {
-        mutableStateMapOf<Int, MutableSet<String>>().apply {
-            projectSections.forEachIndexed { i, _ -> put(i, mutableSetOf()) }
-        }
-    }
-
     val firstVisibleTaskHeaderIndex = remember { mutableStateOf<Int?>(null) }
 
-    // Observe visible headers and update current sticky + visibility
+    // 记录选中状态，项目和任务分别维护选中集合
+    val selectedProjects = remember {
+        mutableStateMapOf<Int, MutableSet<String>>().apply {
+            projectGroups.forEachIndexed { index, group ->
+                put(index, mutableSetOf())
+            }
+        }
+    }
+    val selectedTasks = remember { mutableStateOf(mutableSetOf<String>()) }
+
+    // 监听 LazyColumn 可见项，更新当前 sticky header 及可见 header 集合
     LaunchedEffect(listState) {
         snapshotFlow { listState.layoutInfo }
             .collect { layoutInfo ->
@@ -250,12 +291,11 @@ fun CombinedStickyLists() {
                 val visibleHeaders = mutableSetOf<Int>()
                 var firstTaskHeaderFound: Int? = null
 
-                visibleItems.forEach { item ->
-                    val headerIdx = findHeaderIndexFromItemIndex(item.index, allSections, randomTextsCount)
-                    val sectionStart = getItemStartIndexForSection(headerIdx, allSections, randomTextsCount)
-                    if (item.index == sectionStart) {
+                visibleItems.forEach { itemInfo ->
+                    val headerIdx = findHeaderIndexFromItemIndex(itemInfo.index, projectGroups, sectionGroups, randomTexts.size)
+                    val sectionStartIndex = getItemStartIndexForSection(headerIdx, projectGroups, sectionGroups, randomTexts.size)
+                    if (itemInfo.index == sectionStartIndex) {
                         visibleHeaders.add(headerIdx)
-
                         if (headerIdx >= projectCount && firstTaskHeaderFound == null) {
                             firstTaskHeaderFound = headerIdx
                         }
@@ -263,10 +303,11 @@ fun CombinedStickyLists() {
                 }
 
                 currentStickyIndex.value = findHeaderIndexFromItemIndex(
-                    layoutInfo.visibleItemsInfo.firstOrNull { it.offset == 0 }?.index ?: 0,
-                    allSections,
-                    randomTextsCount
-                    )
+                    layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0,
+                    projectGroups,
+                    sectionGroups,
+                    randomTexts.size
+                )
 
                 visibleHeaderIndices.value = visibleHeaders
                 firstVisibleTaskHeaderIndex.value = firstTaskHeaderFound
@@ -279,7 +320,7 @@ fun CombinedStickyLists() {
             .fillMaxSize()
             .padding(WindowInsets.systemBars.asPaddingValues())
     ) {
-        // ✅ 显示随机文本项
+        // 显示顶部随机文本项
         items(randomTexts) { item ->
             Text(
                 text = item,
@@ -289,7 +330,9 @@ fun CombinedStickyLists() {
                     .background(Color(0xFFF5F5F5))
             )
         }
-        allSections.forEachIndexed { index, (header, items) ->
+
+        // 遍历所有分组，显示 StickyHeader 和内容
+        allGroups.forEachIndexed { index, group ->
             val isProject = index < projectCount
             val isSticky = index == currentStickyIndex.value
             val isVisible = visibleHeaderIndices.value.contains(index)
@@ -306,28 +349,29 @@ fun CombinedStickyLists() {
                     targetValue = if (isSticky) Color.Red else Color.LightGray,
                     label = "headerColor"
                 )
-
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .wrapContentHeight()
-                        .defaultMinSize(minHeight = 56.dp) // ✅ 设置最小高度
+                        .defaultMinSize(minHeight = 56.dp)
                         .background(bgColor)
                         .padding(8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = header, color = Color.White)
+                    val title = if (isProject) (group as ProjectGroup).title else (group as SectionGroup).title
+                    Text(text = title, color = Color.White)
 
                     if (showButtons) {
                         Row {
                             TextButton(onClick = {
                                 if (isProject) {
-                                    selectedProjects[index] =
-                                        projectSections[index].second.toMutableSet()
+                                    // 全选当前项目组所有项
+                                    val projGroup = group as ProjectGroup
+                                    selectedProjects[index] = projGroup.items.map { it.name }.toMutableSet()
                                 } else {
-                                    selectedTasks.value =
-                                        taskSections.flatMap { it.second }.toMutableSet()
+                                    // 全选所有任务项
+                                    val allTasks = sectionGroups.flatMap { it.items }.map { it.name }
+                                    selectedTasks.value = allTasks.toMutableSet()
                                 }
                             }) {
                                 Text("全选", color = Color.White)
@@ -335,15 +379,16 @@ fun CombinedStickyLists() {
 
                             TextButton(onClick = {
                                 if (isProject) {
-                                    val itemsInGroup = projectSections[index].second
+                                    val projGroup = group as ProjectGroup
                                     val current = selectedProjects[index] ?: mutableSetOf()
-                                    selectedProjects[index] = itemsInGroup.mapNotNull {
-                                        if (current.contains(it)) null else it
+                                    // 反选：当前未选中项加入，已选中项移除
+                                    selectedProjects[index] = projGroup.items.mapNotNull {
+                                        if (current.contains(it.name)) null else it.name
                                     }.toMutableSet()
                                 } else {
-                                    val allItems = taskSections.flatMap { it.second }
+                                    val allTasks = sectionGroups.flatMap { it.items }.map { it.name }
                                     val current = selectedTasks.value
-                                    selectedTasks.value = allItems.mapNotNull {
+                                    selectedTasks.value = allTasks.mapNotNull {
                                         if (current.contains(it)) null else it
                                     }.toMutableSet()
                                 }
@@ -365,68 +410,107 @@ fun CombinedStickyLists() {
                 }
             }
 
-            items(items) { item ->
-                val isSelected = if (isProject) {
-                    selectedProjects[index]?.contains(item) == true
-                } else {
-                    selectedTasks.value.contains(item)
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .background(if (isSelected) Color(0xFFE0F7FA) else Color.Transparent),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = isSelected,
-                        onCheckedChange = { checked ->
-                            if (isProject) {
+            // 显示组内所有项，支持选中和 Checkbox 控制
+            if (isProject) {
+                val projGroup = group as ProjectGroup
+                items(projGroup.items) { item ->
+                    val isSelected = selectedProjects[index]?.contains(item.name) == true
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .background(if (isSelected) Color(0xFFE0F7FA) else Color.Transparent),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = isSelected,
+                            onCheckedChange = { checked ->
                                 val currentSet = selectedProjects[index] ?: mutableSetOf()
-                                val newSet = currentSet.toMutableSet() // 新集合触发 Compose 重组
+                                val newSet = currentSet.toMutableSet()
                                 if (checked) {
-                                    newSet.add(item)
+                                    newSet.add(item.name)
                                 } else {
-                                    newSet.remove(item)
+                                    newSet.remove(item.name)
                                 }
-                                selectedProjects[index] = newSet // 替换原集合
-                            } else {
+                                selectedProjects[index] = newSet
+                            }
+                        )
+                        Text(
+                            text = item.name,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                }
+            } else {
+                val secGroup = group as SectionGroup
+                items(secGroup.items) { item ->
+                    val isSelected = selectedTasks.value.contains(item.name)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .background(if (isSelected) Color(0xFFE0F7FA) else Color.Transparent),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = isSelected,
+                            onCheckedChange = { checked ->
                                 val newSet = selectedTasks.value.toMutableSet()
                                 if (checked) {
-                                    newSet.add(item)
+                                    newSet.add(item.name)
                                 } else {
-                                    newSet.remove(item)
+                                    newSet.remove(item.name)
                                 }
-                                selectedTasks.value = newSet // 替换原集合
+                                selectedTasks.value = newSet
                             }
-                        }
-                    )
-                    Text(
-                        text = item,
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
+                        )
+                        Text(
+                            text = item.name,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-// === Utility functions ===
-fun findHeaderIndexFromItemIndex(itemIndex: Int, sections: List<Pair<String, List<String>>>, offset: Int): Int {
-    var running = offset
-    for ((sectionIndex, section) in sections.withIndex()) {
-        if (itemIndex == running) return sectionIndex
-        running += 1 + section.second.size
-        if (itemIndex < running) return sectionIndex
+/**
+ * 计算给定 itemIndex 属于哪个分组的索引
+ * 因为顶部有 randomTexts.size 个随机项，需要做偏移
+ */
+fun findHeaderIndexFromItemIndex(
+    itemIndex: Int,
+    projectGroups: List<ProjectGroup>,
+    sectionGroups: List<SectionGroup>,
+    offset: Int
+): Int {
+    var runningIndex = offset
+    val allGroups = projectGroups + sectionGroups
+    for ((sectionIndex, group) in allGroups.withIndex()) {
+        val size = if (group is ProjectGroup) group.items.size else (group as SectionGroup).items.size
+        if (itemIndex == runningIndex) return sectionIndex
+        runningIndex += 1 + size
+        if (itemIndex < runningIndex) return sectionIndex
     }
     return 0
 }
 
-fun getItemStartIndexForSection(sectionIndex: Int, sections: List<Pair<String, List<String>>>, offset: Int): Int {
+/**
+ * 获取指定分组在列表中的起始 item 索引（包括 header）
+ */
+fun getItemStartIndexForSection(
+    sectionIndex: Int,
+    projectGroups: List<ProjectGroup>,
+    sectionGroups: List<SectionGroup>,
+    offset: Int
+): Int {
     var index = offset
+    val allGroups = projectGroups + sectionGroups
     for (i in 0 until sectionIndex) {
-        index += 1 + sections[i].second.size
+        val group = allGroups[i]
+        val size = if (group is ProjectGroup) group.items.size else (group as SectionGroup).items.size
+        index += 1 + size
     }
     return index
 }
